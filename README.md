@@ -304,3 +304,54 @@ git commit -m "feat: implement token burn mechanics for buys and sells
 - Add TokenStats account in state.rs
 - Implement record_buy and record_sell handlers in lib.rs
 - Add unit tests for burn calculations"
+
+- git add .
+
+git commit -m "feat: add NFT treasury buyback bridge and automated Church of Pump ecosystem rewards
+
+- Add NFT treasury accounting system
+- Track NFT revenue deposits on-chain
+- Add TreasuryStats account for buyback metrics
+- Implement record_buyback instruction
+- Support NFT revenue routing into token buybacks
+- Add staking vault allocation tracking
+- Add holder rewards allocation tracking
+- Add treasury reserve allocation tracking
+- Extend burn statistics with buyback reporting
+- Prepare integration hooks for Jupiter swap execution
+- Add confirmed transaction monitoring support
+- Add buyback event emission for off-chain automation
+- Add NFT-to-token bridge architecture
+- Add treasury audit and accounting utilities
+- Add support for automatic revenue recycling
+- Prepare reward distribution integration
+- Prepare buyback-and-burn integration
+- Add unit tests for treasury accounting"
+- programs/
+└── pump_rewards/
+    ├── src/
+    │   ├── burn.rs
+    │   ├── state.rs
+    │   ├── treasury.rs
+    │   ├── buyback.rs
+    │   ├── rewards.rs
+    │   ├── events.rs
+    │   └── lib.rs
+    │
+    └── tests/
+        ├── burn_test.rs
+        ├── buyback_test.rs
+        └── treasury_test.rs
+  
+git checkout -b feature/church-of-pump-buyback-bridge
+
+# Add treasury.rs
+# Add buyback.rs
+# Add rewards.rs
+# Update state.rs
+# Update lib.rs
+# Add tests
+
+git add .
+
+git commit -m "feat: add NFT treasury buyback bridge and automated Church of Pump ecosystem rewards"
