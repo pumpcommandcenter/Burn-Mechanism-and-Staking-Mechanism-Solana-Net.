@@ -355,3 +355,36 @@ git checkout -b feature/church-of-pump-buyback-bridge
 git add .
 
 git commit -m "feat: add NFT treasury buyback bridge and automated Church of Pump ecosystem rewards"
+git add programs/pump_rewards/src/treasury.rs \
+        programs/pump_rewards/src/buyback.rs \
+        programs/pump_rewards/src/rewards.rs \
+        programs/pump_rewards/src/state.rs \
+        programs/pump_rewards/src/lib.rs \
+        programs/pump_rewards/tests/treasury_test.rs \
+        programs/pump_rewards/tests/buyback_test.rs \
+        programs/pump_rewards/tests/rewards_test.rs
+
+git commit -m "feat: add treasury accounting, buyback tracking, and rewards allocation modules
+
+- Add TreasuryStats account structure
+- Add EcosystemStats accounting structure
+- Add treasury.rs for NFT revenue accounting
+- Add buyback.rs allocation calculations
+- Add rewards.rs allocation calculations
+- Export new modules through lib.rs
+- Extend state management for ecosystem metrics
+- Add treasury initialization tests
+- Add buyback allocation tests
+- Add rewards allocation tests
+- Prepare foundation for NFT revenue allocation workflows
+- Improve ecosystem accounting and reporting"
+- 57ece41 feat: add treasury accounting, buyback tracking, and rewards allocation modules
+|
+├── src/treasury.rs
+├── src/buyback.rs
+├── src/rewards.rs
+├── src/state.rs
+├── src/lib.rs
+├── tests/treasury_test.rs
+├── tests/buyback_test.rs
+└── tests/rewards_test.rs
