@@ -355,3 +355,58 @@ git checkout -b feature/church-of-pump-buyback-bridge
 git add .
 
 git commit -m "feat: add NFT treasury buyback bridge and automated Church of Pump ecosystem rewards"
+feat: add treasury accounting, buyback, rewards modules and off-chain automation bot
+
+- Add TreasuryStats + EcosystemStats account structures
+- Add treasury.rs for NFT revenue accounting
+- Add buyback.rs allocation calculations + record_buyback
+- Add rewards.rs allocation calculations
+- Export modules through lib.rs
+- Extend state management for ecosystem metrics
+- Full off-chain Node.js bot with Jupiter swap integration
+- NFT sale detection → automated buyback + allocations (treasury, staking, burn, rewards)
+- Prepare foundation for NFT-to-token revenue routing
+- README + setup instructions
+- # On-chain (needs Anchor installed)
+cd programs/pump_rewards
+anchor build   # (if Anchor is available)
+
+# Bot
+cd ../../pump-bot
+cp .env.example .env
+# Edit .env with your treasury key + mint
+node index.js
+cd /home/workdir/pump-rewards
+git log --oneline -1
+git show --name-only HEAD
+cd /home/workdir/pump-rewards
+# On-chain
+anchor build          # (install Anchor first if needed)
+anchor test
+# Bot
+cd pump-bot
+npm install
+cp .env.example .env
+# Edit .env (keys, mint, RPC)
+node index.js
+
+cd /home/workdir/pump-rewards
+git log --oneline -1
+git show --name-only HEAD
+cd /home/workdir/pump-rewards
+
+# Build & Test On-Chain
+anchor build          # (install Anchor first if needed)
+anchor test
+
+# Bot
+cd pump-bot
+npm install
+cp .env.example .env   # ← Edit with your keys!
+node index.js
+
+# Docker
+docker build -t pump-bot .
+docker run -p 3000:3000 --env-file .env pump-bot
+
+
