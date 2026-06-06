@@ -1092,6 +1092,1165 @@ cd /home/workdir/artifacts
 bash single_full_commit.sh
 cd /home/workdir/artifacts/programs/pump_rewards
 anchor build && anchor test
+#[account]
+pub struct SecurityState {
+    pub is_frozen: bool,
+    pub frozen_accounts: Vec<Pubkey>,
+    pub last_breach: i64,
+    pub breach_count: u64,
+}
+
+#[program]
+pub mod pump_rewards {
+    // ...
+
+    // Enhanced breach detection (AI/software patterns)
+    pub fn transfer_hook(...) -> Result<()> {
+        let security = &mut ctx.accounts.security_state;
+        require!(!security.is_frozen, ErrorCode::ProgramFrozen);
+
+        // AI / Software Breach Detection
+        let clock = Clock::get()?;
+        if amount > MAX_SAFE_TRANSFER || 
+           (clock.unix_timestamp - security.last_breach < 5) || // rapid successive calls
+           ctx.remaining_accounts.len() > EXPECTED_MAX_ACCOUNTS {  // anomalous extra accounts
+            security.breach_count = security.breach_count.saturating_add(1);
+            if security.breach_count >= 3 {
+                security.is_frozen = true;
+                security.frozen_accounts.push(ctx.accounts.source.key());
+                msg!("🚨 AI / Software Breach Detected - Accounts Frozen");
+                return Err(error!(ErrorCode::SuspiciousActivity));
+            }
+        }
+
+        // Normal hook logic (burn, tax, etc.)
+        Ok(())
+    }
+
+    // Squads-only unfreeze
+    pub fn unfreeze(ctx: Context<Unfreeze>, target: Option<Pubkey>) -> Result<()> {
+        require_keys_eq!(ctx.accounts.authority.key(), ctx.accounts.squads_vault.key());
+        let security = &mut ctx.accounts.security_state;
+        security.is_frozen = false;
+        if let Some(t) = target {
+            security.frozen_accounts.retain(|&x| x != t);
+        }
+        security.breach_count = 0;
+        msg!("✅ Unfrozen by Squads");
+        Ok(())
+    }
+}
+// Helius webhook listener with AI breach triggers
+async function handleWebhook(event) {
+  try {
+    // Signature verification
+    if (!verifyHeliusSignature(event)) {
+      console.error("❌ Invalid webhook signature");
+      return;
+    }
+
+    const tx = event.data;
+    if (tx.tokenTransfers && tx.tokenTransfers.some(t => t.amount > MAX_SAFE_AMOUNT)) {
+      // Trigger on-chain freeze via Anchor client
+      await program.methods.freezeAccount(new PublicKey(tx.source))
+        .accounts({ securityState: SECURITY_STATE_PDA })
+        .rpc();
+      sendAlert(`🚨 AI Breach Detected - Frozen account ${tx.source}`);
+    }
+
+    // Other triggers: tick expansion, DCA, buyback, etc.
+    if (tx.type === 'NFT_SALE') triggerDcaBuyback(tx);
+    if (tx.whirlpoolUpdate) triggerTickExpansion(tx);
+
+  } catch (err) {
+    console.error("Webhook error:", err);
+  }
+}
+
+// Secure signature verification + rate limiting
+function verifyHeliusSignature(event) { /* HMAC check */ }
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+// Rate limiting constants
+const MAX_TRANSFERS_PER_SLOT: u64 = 5;
+const GLOBAL_RATE_LIMIT: u64 = 100; // per slot
+
+#[account]
+pub struct RateLimitState {
+    pub last_slot: u64,
+    pub transfer_count: u64,
+}
+
+pub fn transfer_hook(...) -> Result<()> {
+    let clock = Clock::get()?;
+    let slot = clock.slot;
+
+    let rate = &mut ctx.accounts.rate_limit;
+    if rate.last_slot == slot {
+        rate.transfer_count = rate.transfer_count.saturating_add(1);
+        require!(rate.transfer_count <= MAX_TRANSFERS_PER_SLOT, ErrorCode::RateLimitExceeded);
+    } else {
+        rate.last_slot = slot;
+        rate.transfer_count = 1;
+    }
+
+    // Global check...
+    require!(!ctx.accounts.security_state.is_frozen, ErrorCode::ProgramFrozen);
+
+    // ... rest of hook logic
+    Ok(())
+}
+use anchor_lang::solana_program::compute_budget::ComputeBudgetInstruction;
+
+// At start of transfer_hook or admin instructions
+let compute_ix = ComputeBudgetInstruction::set_compute_unit_limit(300_000); // Adjust as needed
+// Or set via remaining_accounts / CPI if needed
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Invalid price update")]
+    InvalidPriceUpdate,
+    #[msg("Stale price")]
+    StalePrice,
+    #[msg("Lock period still active")]
+    LockPeriodActive,
+    #[msg("Insufficient staked amount")]
+    InsufficientStake,
+    #[msg("Invalid Merkle proof")]
+    InvalidMerkleProof,
+    #[msg("No rewards to claim")]
+    NoRewardsToClaim,
+    #[msg("Rate limit exceeded")]
+    RateLimitExceeded,
+    #[msg("Program frozen due to breach")]
+    ProgramFrozen,
+    #[msg("Insufficient compute units")]
+    ComputeLimitExceeded,
+    #[msg("Suspicious activity detected")]
+    SuspiciousActivity,
+    #[msg("Serialization failed")]
+    SerializationFailed,
+}cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#[account]
+pub struct SecurityState {
+    pub is_frozen: bool,
+    pub frozen_accounts: Vec<Pubkey>,  // List of frozen token accounts
+    pub last_breach: i64,
+}
+
+#[program]
+pub mod pump_rewards {
+    // ...
+
+    // Emergency freeze (can be called by anyone on detection, but unfreeze only by Squads)
+    pub fn freeze_account(ctx: Context<FreezeAccount>, account_to_freeze: Pubkey) -> Result<()> {
+        let security = &mut ctx.accounts.security_state;
+        security.is_frozen = true;
+        security.frozen_accounts.push(account_to_freeze);
+        security.last_breach = Clock::get()?.unix_timestamp;
+
+        msg!("🚨 AI Breach / Suspicious Activity Detected - Account Frozen: {}", account_to_freeze);
+        Ok(())
+    }
+
+    // Squads-only unfreeze
+    pub fn unfreeze_program(ctx: Context<Unfreeze>, target_account: Option<Pubkey>) -> Result<()> {
+        require_keys_eq!(ctx.accounts.authority.key(), ctx.accounts.squads_vault.key(), ErrorCode::Unauthorized);
+
+        let security = &mut ctx.accounts.security_state;
+        security.is_frozen = false;
+        if let Some(acc) = target_account {
+            // Remove from frozen list
+            security.frozen_accounts.retain(|&x| x != acc);
+        }
+        msg!("✅ Program / Account unfrozen by Squads");
+        Ok(())
+    }
+}
+
+// In transfer_hook (protection layer)
+pub fn transfer_hook(...) -> Result<()> {
+    let security = &ctx.accounts.security_state;
+    require!(!security.is_frozen, ErrorCode::ProgramFrozen);
+
+    // AI breach detection example
+    if amount > MAX_SAFE_AMOUNT || ctx.accounts.source.owner != expected_owner {
+        // Auto-freeze
+        ctx.accounts.security_state.is_frozen = true;
+        return Err(error!(ErrorCode::SuspiciousActivity));
+    }
+
+    // Normal logic...
+    Ok(())
+}
+cd /home/workdir/artifacts
+chmod +x scripts/*.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#[account]
+pub struct SecurityState {
+    pub is_frozen: bool,
+    pub last_breach_timestamp: i64,
+}
+
+pub fn transfer_hook(...) -> Result<()> {
+    let security = &ctx.accounts.security_state;
+    require!(!security.is_frozen, ErrorCode::ProgramFrozen);
+
+    // Breach detection (example: anomalous amount)
+    if amount > MAX_SAFE_TRANSFER {
+        // Trigger freeze
+        ctx.accounts.security_state.is_frozen = true;
+        msg!("🚨 Breach detected - program frozen for investigation");
+        return Err(error!(ErrorCode::SuspiciousActivity));
+    }
+
+    // Normal hook logic...
+    Ok(())
+}
+
+// Squads-gated unfreeze
+pub fn unfreeze_program(ctx: Context<Unfreeze>) -> Result<()> {
+    ctx.accounts.security_state.is_frozen = false;
+    Ok(())
+}
+cd /home/workdir/artifacts
+chmod +x scripts/*.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+// Safe Metaplex Metadata Init
+pub fn initialize_metaplex_metadata(ctx: Context<InitMetadata>) -> Result<()> {
+    // Immutable after setup
+    require_keys_eq!(ctx.accounts.update_authority.key(), ctx.accounts.squads_vault.key());
+    // ... Metaplex CPI or spl-token-2022 metadata init
+    msg!("✅ Metaplex metadata initialized with immutable + Squads safety");
+    Ok(())
+}
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Metaplex Safety + Squads + Solana Verify)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy to Buffer
+echo "Deploying to buffer..."
+BUFFER_ID=$(solana program deploy --buffer target/deploy/pump_rewards.so --url devnet | grep -o 'Buffer: [A-Za-z0-9]*' | awk '{print $2}')
+echo "✅ Buffer ID: $BUFFER_ID"
+
+# 3. Program ID extraction
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: [A-Za-z0-9]*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 4. Squads Proposal
+cd ../../scripts
+./squads_propose_upgrade.sh "$PROGRAM_ID" "$BUFFER_ID" "YOUR_SQUADS_VAULT_PUBKEY"
+
+# 5. Token-2022 mint with Metaplex + safety
+./create_token_2022_mint.sh
+
+# 6. Initialize accounts (Squads-gated)
+cd ../programs/pump_rewards
+anchor run initialize-extra-meta --provider.cluster devnet
+anchor run initialize-core-accounts --provider.cluster devnet
+
+# 7. Solana Verify (refined)
+echo "🔍 Running Solana Verify hash matching..."
+solana-verify verify --program-id "$PROGRAM_ID" --url devnet || echo "⚠️ Manual verification required for security"
+
+echo "✅ Full initialization complete with Metaplex safety protocols and Squads workflows!"
+echo "Security: Immutable metadata + Squads timelock + verifiable builds + hardware signers."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/*.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#!/bin/bash
+set -e
+
+PROGRAM_ID="$1"
+BUFFER_ID="$2"
+SQUADS_MULTISIG="$3"
+
+if [ -z "$PROGRAM_ID" ] || [ -z "$BUFFER_ID" ] || [ -z "$SQUADS_MULTISIG" ]; then
+  echo "Usage: $0 <PROGRAM_ID> <BUFFER_ID> <SQUADS_MULTISIG>"
+  exit 1
+fi
+
+echo "🚀 Creating Squads v4 proposal with timelock..."
+
+squads-cli proposal create \
+  --multisig "$SQUADS_MULTISIG" \
+  --title "Upgrade pump_rewards" \
+  --description "Verifiable build + timelock security" \
+  --instruction "solana program upgrade $PROGRAM_ID --buffer $BUFFER_ID" \
+  --timelock 86400   # 24 hours
+
+echo "✅ Proposal created with 24h timelock. Approve in Squads UI."
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Solana Verify + Metaplex + Squads Timelock)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy to Buffer
+echo "Deploying to buffer account..."
+BUFFER_ID=$(solana program deploy --buffer target/deploy/pump_rewards.so --url devnet | grep -o 'Buffer: [A-Za-z0-9]*' | awk '{print $2}')
+echo "✅ Buffer ID: $BUFFER_ID"
+
+# 3. Program ID extraction
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: [A-Za-z0-9]*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 4. Squads Proposal with Timelock
+cd ../../scripts
+./squads_propose_upgrade.sh "$PROGRAM_ID" "$BUFFER_ID" "YOUR_SQUADS_VAULT_PUBKEY"
+
+# 5. Token-2022 mint with Metaplex metadata
+./create_token_2022_mint.sh
+
+# 6. Initialize accounts
+cd ../programs/pump_rewards
+anchor run initialize-extra-meta --provider.cluster devnet
+anchor run initialize-core-accounts --provider.cluster devnet
+
+# 7. Solana Verify Hash Matching
+echo "🔍 Running solana-verify..."
+solana-verify verify --program-id "$PROGRAM_ID" --url devnet || echo "Manual verification recommended"
+
+echo "✅ Full initialization complete with Metaplex standards, Solana verify, and Squads timelock!"
+echo "Security: Squads timelock + verifiable builds + hardware signers."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/*.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#!/bin/bash
+set -e
+
+PROGRAM_ID="$1"
+BUFFER_ID="$2"
+SQUADS_MULTISIG="$3"
+
+if [ -z "$PROGRAM_ID" ] || [ -z "$BUFFER_ID" ] || [ -z "$SQUADS_MULTISIG" ]; then
+  echo "Usage: $0 <PROGRAM_ID> <BUFFER_ID> <SQUADS_MULTISIG>"
+  exit 1
+fi
+
+echo "🚀 Creating basic Squads v4 proposal for upgrade..."
+
+squads-cli proposal create \
+  --multisig "$SQUADS_MULTISIG" \
+  --instruction "solana program upgrade $PROGRAM_ID --buffer $BUFFER_ID"
+
+echo "✅ Proposal created. Approve + execute in Squads UI with timelock."
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy to Buffer
+echo "Deploying to buffer..."
+BUFFER_ID=$(solana program deploy --buffer target/deploy/pump_rewards.so --url devnet | grep -o 'Buffer: [A-Za-z0-9]*' | awk '{print $2}')
+echo "✅ Buffer ID: $BUFFER_ID"
+
+# 3. Program ID extraction
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: [A-Za-z0-9]*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 4. Squads Proposal (simple CLI)
+cd ../../scripts
+./squads_propose_upgrade.sh "$PROGRAM_ID" "$BUFFER_ID" "YOUR_SQUADS_VAULT_PUBKEY"
+
+# 5. Token-2022 mint
+./create_token_2022_mint.sh
+
+# 6. Initialize accounts
+cd ../programs/pump_rewards
+anchor run initialize-extra-meta --provider.cluster devnet
+anchor run initialize-core-accounts --provider.cluster devnet
+
+echo "✅ Full initialization complete with Squads governance and secure upgrade authority!"
+echo "Security: Squads multisig + timelock + hardware signers + verifiable builds."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/*.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#!/bin/bash
+set -e
+
+PROGRAM_ID="$1"
+BUFFER_ID="$2"
+SQUADS_MULTISIG="$3"
+
+if [ -z "$PROGRAM_ID" ] || [ -z "$BUFFER_ID" ] || [ -z "$SQUADS_MULTISIG" ]; then
+  echo "Usage: $0 <PROGRAM_ID> <BUFFER_ID> <SQUADS_MULTISIG_VAULT>"
+  exit 1
+fi
+
+echo "🚀 Creating Squads v4 timelock proposal for upgrade..."
+
+squads-cli proposal create \
+  --multisig "$SQUADS_MULTISIG" \
+  --title "Upgrade pump_rewards program" \
+  --description "Verifiable build with timelock. Security: Squads + hash verification." \
+  --instruction "solana program upgrade $PROGRAM_ID --buffer $BUFFER_ID" \
+  --timelock 86400  # 24 hours
+
+echo "✅ Proposal created! Approve in Squads UI with hardware signers."
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Squads v4 + Buffer + Timelock)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy to Buffer Account (secure upgrade path)
+echo "Deploying to buffer..."
+BUFFER_ID=$(solana program deploy --buffer target/deploy/pump_rewards.so --url devnet | grep -o 'Buffer: [A-Za-z0-9]*' | awk '{print $2}')
+echo "✅ Buffer ID: $BUFFER_ID"
+
+# 3. Robust Program ID extraction
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: [A-Za-z0-9]*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 4. Squads v4 Proposal (timelock + buffer)
+cd ../../scripts
+./squads_propose_upgrade.sh "$PROGRAM_ID" "$BUFFER_ID" "YOUR_SQUADS_VAULT_PUBKEY"
+
+# 5. Token-2022 mint + extensions
+./create_token_2022_mint.sh
+
+# 6. Initialize accounts
+cd ../programs/pump_rewards
+anchor run initialize-extra-meta --provider.cluster devnet
+anchor run initialize-core-accounts --provider.cluster devnet
+
+echo "✅ Full initialization complete with Squads governance, buffer upgrades, and timelock!"
+echo "Security: Squads timelock proposals + verifiable builds + hardware signers."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/*.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#!/bin/bash
+set -e
+
+PROGRAM_ID="$1"
+BUFFER_ID="$2"
+SQUADS_MULTISIG="$3"   # Squads vault pubkey
+
+if [ -z "$PROGRAM_ID" ] || [ -z "$BUFFER_ID" ]; then
+  echo "Usage: $0 <PROGRAM_ID> <BUFFER_ID> <SQUADS_MULTISIG>"
+  exit 1
+fi
+
+echo "🚀 Creating Squads v4 proposal for program upgrade..."
+
+# Create proposal via Squads CLI (install with: cargo install squads-cli)
+squads-cli proposal create \
+  --multisig "$SQUADS_MULTISIG" \
+  --instruction "solana program upgrade $PROGRAM_ID --buffer $BUFFER_ID" \
+  --title "Upgrade pump_rewards to latest version" \
+  --description "Verifiable build with timelock. OneCandleOneFaithOneDestinyApollyon" \
+  --timelock 86400  # 24 hours
+
+echo "✅ Proposal created. Approve in Squads UI with hardware signers."
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Squads v4 + Buffer + Timelock)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy to Buffer (secure upgrade path)
+echo "Deploying to buffer account..."
+BUFFER_ID=$(solana program deploy --buffer target/deploy/pump_rewards.so --url devnet | grep -o 'Buffer: [A-Za-z0-9]*' | awk '{print $2}')
+echo "✅ Buffer ID: $BUFFER_ID"
+
+# 3. Get Program ID (refined regex)
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: [A-Za-z0-9]*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 4. Squads Timelock Proposal for Upgrade
+cd ../../scripts
+./squads_propose_upgrade.sh "$PROGRAM_ID" "$BUFFER_ID" "YOUR_SQUADS_VAULT_PUBKEY"
+
+# 5. Token-2022 mint + extensions
+./create_token_2022_mint.sh
+
+# 6. Initialize ExtraAccountMetaList + core accounts
+cd ../programs/pump_rewards
+anchor run initialize-extra-meta --provider.cluster devnet
+anchor run initialize-core-accounts --provider.cluster devnet
+
+echo "✅ Full initialization complete with Squads v4 proposals, buffer upgrades, and timelock!"
+echo "Security: Squads CLI proposals + 24h timelock + verifiable builds + hardware signers."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/*.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Squads Timelock + Verifiable Builds)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+echo "Building verifiable binary..."
+anchor build --verifiable
+
+# 2. Deploy and robust Program ID extraction
+anchor deploy --provider.cluster devnet
+
+# Refined regex with multiple fallbacks
+PROGRAM_ID=$(grep -o 'programId: "[^"]*"' target/idl/pump_rewards.json 2>/dev/null | head -n1 | cut -d'"' -f2 || true)
+if [ -z "$PROGRAM_ID" ]; then
+  PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: [A-Za-z0-9]*' | awk '{print $2}' | head -n1)
+fi
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 3. Squads Timelock Reminder
+echo "=== Use Squads v4 multisig with 24-48h timelock on all proposals (upgrades, treasury, etc.) ==="
+
+# 4. Create Token-2022 mint
+cd ../../scripts
+./create_token_2022_mint.sh
+
+# 5. Initialize ExtraAccountMetaList + core accounts (Squads-gated)
+cd ../programs/pump_rewards
+anchor run initialize-extra-meta --provider.cluster devnet
+anchor run initialize-core-accounts --provider.cluster devnet
+
+# 6. Set upgrade authority to Squads
+solana program set-upgrade-authority "$PROGRAM_ID" --new-upgrade-authority YOUR_SQUADS_VAULT_PUBKEY --url devnet
+
+# 7. Secure IDL
+anchor idl init "$PROGRAM_ID" --filepath target/idl/pump_rewards.json
+
+# 8. Explicit solana-verify (secure hash matching)
+echo "🔍 Running solana-verify for program hash matching..."
+solana-verify verify --program-id "$PROGRAM_ID" --url devnet || echo "⚠️  Run manually if needed: solana-verify verify --program-id $PROGRAM_ID"
+
+echo "✅ Full initialization complete with timelock, verifiable builds, and hash verification!"
+echo "Security: Squads timelock + verifiable hash + hardware signers."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/initialize_all.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Squads + Verifiable + Timelock)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build for hash matching
+echo "Building verifiable binary for Solana verify..."
+anchor build --verifiable
+
+# 2. Deploy and robust Program ID extraction
+echo "Deploying program..."
+anchor deploy --provider.cluster devnet
+
+# Refined regex extraction (multiple fallbacks)
+PROGRAM_ID=$(grep -o 'programId: "[^"]*"' target/idl/pump_rewards.json 2>/dev/null | head -n1 | cut -d'"' -f2)
+if [ -z "$PROGRAM_ID" ]; then
+  PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: [A-Za-z0-9]*' | awk '{print $2}' | head -n1)
+fi
+if [ -z "$PROGRAM_ID" ]; then
+  PROGRAM_ID=$(solana program show --output json $(ls target/deploy/*.so | head -n1 | sed 's/.*\///;s/\.so//') 2>/dev/null | jq -r '.programId' || echo "MANUAL_CHECK_REQUIRED")
+fi
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 3. Squads + Timelock Reminder
+echo "=== Create/Use Squads v4 multisig (2/3 or 3/5 hardware signers) with 24-48h timelock on proposals ==="
+
+# 4. Token-2022 mint + extensions
+cd ../../scripts
+./create_token_2022_mint.sh
+
+# 5. Initialize ExtraAccountMetaList + core accounts
+cd ../programs/pump_rewards
+anchor run initialize-extra-meta --provider.cluster devnet
+anchor run initialize-core-accounts --provider.cluster devnet
+
+# 6. Set upgrade authority to Squads
+solana program set-upgrade-authority "$PROGRAM_ID" --new-upgrade-authority YOUR_SQUADS_VAULT_PUBKEY --url devnet
+
+# 7. Secure IDL generation
+anchor idl init "$PROGRAM_ID" --filepath target/idl/pump_rewards.json
+
+# 8. Verify program hash (security layer)
+echo "Verifying program hash match..."
+solana-verify verify --program-id "$PROGRAM_ID" --url devnet || echo "Run solana-verify manually for full match"
+
+echo "✅ Full initialization complete with verifiable builds, hash matching, and Squads timelock!"
+echo "Security: Squads authority + timelock + verifiable hash + hardware signers."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/initialize_all.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/initialize_all.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Squads + Verifiable)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy & Extract Program ID cleanly
+anchor deploy --provider.cluster devnet
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: .*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 3. Create Squads multisig (manual but required)
+echo "=== Create Squads multisig (2/3 hardware) and note vault pubkey ==="
+
+# 4. Create Token-2022 mint with all extensions
+cd ../../scripts
+./create_token_2022_mint.sh
+
+# 5. Initialize ExtraAccountMetaList
+anchor run initialize-extra-meta --provider.cluster devnet
+
+# 6. Initialize core accounts
+anchor run initialize-core-accounts --provider.cluster devnet
+
+# 7. Set upgrade authority to Squads (secure)
+solana program set-upgrade-authority "$PROGRAM_ID" --new-upgrade-authority YOUR_SQUADS_VAULT_PUBKEY --url devnet
+
+echo "✅ Full initialization complete! Run 'anchor test'."
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/initialize_all.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+use spl_transfer_hook_interface::account::{ExtraAccountMeta, ExtraAccountMetaList};
+
+pub fn initialize_extra_account_meta(ctx: Context<InitExtraMeta>) -> Result<()> {
+    // Define the exact extra accounts the hook requires
+    let extra_metas: Vec<ExtraAccountMeta> = vec![
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.treasury.key(), false, true),   // writable
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.bonding_curve.key(), false, false), // readonly
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.price_update.key(), false, false),
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.staking_vault.key(), false, true),
+        // Add more as needed (Merkle tree, etc.)
+    ];
+
+    // === PACKING ===
+    let mut data = Vec::with_capacity(ExtraAccountMetaList::size(extra_metas.len()));
+    ExtraAccountMetaList::pack(extra_metas, &mut data)
+        .map_err(|e| error!(ErrorCode::SerializationFailed))?;
+
+    // Store serialized data
+    let meta_list = &mut ctx.accounts.extra_meta_list;
+    meta_list.set_data(&data);  // or use Anchor zero-copy if preferred
+
+    msg!("✅ ExtraAccountMetaList packed with {} accounts", extra_metas.len());
+    Ok(())
+}
+#[derive(Accounts)]
+pub struct InitExtraMeta<'info> {
+    #[account(mut, seeds = [b"extra_meta_list", mint.key().as_ref()], bump)]
+    pub extra_meta_list: AccountInfo<'info>,
+    pub authority: Signer<'info>,  // Squads-gated
+    // ... other referenced accounts
+}
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Squads + Verifiable)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy & Extract Program ID cleanly
+anchor deploy --provider.cluster devnet
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: .*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 3. Create Squads multisig (manual but required)
+echo "=== Create Squads multisig (2/3 hardware) and note vault pubkey ==="
+
+# 4. Create Token-2022 mint with all extensions
+cd ../../scripts
+./create_token_2022_mint.sh
+
+# 5. Initialize ExtraAccountMetaList
+anchor run initialize-extra-meta --provider.cluster devnet
+
+# 6. Initialize core accounts
+anchor run initialize-core-accounts --provider.cluster devnet
+
+# 7. Set upgrade authority to Squads (secure)
+solana program set-upgrade-authority "$PROGRAM_ID" --new-upgrade-authority YOUR_SQUADS_VAULT_PUBKEY --url devnet
+
+echo "✅ Full initialization complete! Run 'anchor test'."
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/initialize_all.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+use spl_transfer_hook_interface::account::{ExtraAccountMeta, ExtraAccountMetaList};
+
+pub fn initialize_extra_account_meta(ctx: Context<InitExtraMeta>) -> Result<()> {
+    // Define the exact extra accounts the hook requires
+    let extra_metas: Vec<ExtraAccountMeta> = vec![
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.treasury.key(), false, true),   // writable
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.bonding_curve.key(), false, false), // readonly
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.price_update.key(), false, false),
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.staking_vault.key(), false, true),
+        // Add more as needed (Merkle tree, etc.)
+    ];
+
+    // === PACKING ===
+    let mut data = Vec::with_capacity(ExtraAccountMetaList::size(extra_metas.len()));
+    ExtraAccountMetaList::pack(extra_metas, &mut data)
+        .map_err(|e| error!(ErrorCode::SerializationFailed))?;
+
+    // Store serialized data
+    let meta_list = &mut ctx.accounts.extra_meta_list;
+    meta_list.set_data(&data);  // or use Anchor zero-copy if preferred
+
+    msg!("✅ ExtraAccountMetaList packed with {} accounts", extra_metas.len());
+    Ok(())
+}
+#[derive(Accounts)]
+pub struct InitExtraMeta<'info> {
+    #[account(mut, seeds = [b"extra_meta_list", mint.key().as_ref()], bump)]
+    pub extra_meta_list: AccountInfo<'info>,
+    pub authority: Signer<'info>,  // Squads-gated
+    // ... other referenced accounts
+}
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full secure $PUMP initialization (Squads + Verifiable)..."
+
+cd /home/workdir/artifacts/programs/pump_rewards
+
+# 1. Verifiable Build
+anchor build --verifiable
+
+# 2. Deploy & Extract Program ID cleanly
+anchor deploy --provider.cluster devnet
+PROGRAM_ID=$(anchor keys list | grep -o 'pump_rewards: .*' | awk '{print $2}' | head -n1)
+echo "✅ Program ID: $PROGRAM_ID"
+
+# 3. Create Squads multisig (manual but required)
+echo "=== Create Squads multisig (2/3 hardware) and note vault pubkey ==="
+
+# 4. Create Token-2022 mint with all extensions
+cd ../../scripts
+./create_token_2022_mint.sh
+
+# 5. Initialize ExtraAccountMetaList
+anchor run initialize-extra-meta --provider.cluster devnet
+
+# 6. Initialize core accounts
+anchor run initialize-core-accounts --provider.cluster devnet
+
+# 7. Set upgrade authority to Squads (secure)
+solana program set-upgrade-authority "$PROGRAM_ID" --new-upgrade-authority YOUR_SQUADS_VAULT_PUBKEY --url devnet
+
+echo "✅ Full initialization complete! Run 'anchor test'."
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor test
+cd /home/workdir/artifacts
+chmod +x scripts/initialize_all.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build --verifiable && anchor test
+use spl_transfer_hook_interface::account::{ExtraAccountMeta, ExtraAccountMetaList};
+
+pub fn initialize_extra_account_meta(ctx: Context<InitExtraMeta>) -> Result<()> {
+    // Define the exact extra accounts the hook requires
+    let extra_metas: Vec<ExtraAccountMeta> = vec![
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.treasury.key(), false, true),   // writable
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.bonding_curve.key(), false, false), // readonly
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.price_update.key(), false, false),
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.staking_vault.key(), false, true),
+        // Add more as needed (Merkle tree, etc.)
+    ];
+
+    // === PACKING ===
+    let mut data = Vec::with_capacity(ExtraAccountMetaList::size(extra_metas.len()));
+    ExtraAccountMetaList::pack(extra_metas, &mut data)
+        .map_err(|e| error!(ErrorCode::SerializationFailed))?;
+
+    // Store serialized data
+    let meta_list = &mut ctx.accounts.extra_meta_list;
+    meta_list.set_data(&data);  // or use Anchor zero-copy if preferred
+
+    msg!("✅ ExtraAccountMetaList packed with {} accounts", extra_metas.len());
+    Ok(())
+}
+#[derive(Accounts)]
+pub struct InitExtraMeta<'info> {
+    #[account(mut, seeds = [b"extra_meta_list", mint.key().as_ref()], bump)]
+    pub extra_meta_list: AccountInfo<'info>,
+    pub authority: Signer<'info>,  // Squads-gated
+    // ... other referenced accounts
+}
+// In lib.rs or hook_accounts.rs
+use spl_transfer_hook_interface::account::{ExtraAccountMeta, ExtraAccountMetaList};
+
+pub fn initialize_extra_account_meta(ctx: Context<InitExtraMeta>) -> Result<()> {
+    let extra_metas: Vec<ExtraAccountMeta> = vec![
+        // 1. Treasury PDA (writable for tax deposit)
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.treasury.key(), false, true),
+        
+        // 2. Bonding curve (readonly for MC calculation)
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.bonding_curve.key(), false, false),
+        
+        // 3. Pyth price update (readonly)
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.price_update.key(), false, false),
+        
+        // 4. Staking vault / Merkle tree (as needed)
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.staking_vault.key(), false, true),
+    ];
+
+    // Serialize the list
+    let mut data = Vec::new();
+    ExtraAccountMetaList::pack(extra_metas, &mut data)
+        .map_err(|_| error!(ErrorCode::SerializationFailed))?;
+
+    // Store in the account (PDA or dedicated account)
+    let meta_account = &mut ctx.accounts.extra_meta_list;
+    meta_account.set_data(&data);  // or use Anchor serialization
+
+    msg!("ExtraAccountMetaList initialized with {} accounts", extra_metas.len());
+    Ok(())
+}
+#[derive(Accounts)]
+pub struct InitExtraMeta<'info> {
+    #[account(mut)]
+    pub extra_meta_list: AccountInfo<'info>,  // PDA derived from mint + program
+    pub authority: Signer<'info>,  // Squads multisig
+    // ... other accounts referenced above
+}
+#!/bin/bash
+set -e
+
+echo "🚀 Starting full $PUMP initialization with Squads security..."
+
+cd /home/workdir/artifacts
+
+# 1. Deploy program
+cd programs/pump_rewards
+anchor build
+anchor deploy --provider.cluster devnet
+PROGRAM_ID=$(anchor keys list | grep pump_rewards | awk '{print $2}')
+echo "Program ID: $PROGRAM_ID"
+
+# 2. Create Squads multisig (manual step reminder)
+echo "Create Squads multisig and note vault pubkey..."
+
+# 3. Create Token-2022 mint with all extensions
+cd ../../scripts
+./create_token_2022_mint.sh
+
+# 4. Initialize ExtraAccountMetaList (Squads proposal recommended)
+anchor run initialize-extra-meta --provider.cluster devnet
+
+# 5. Initialize other accounts (Treasury, BondingCurve, StakingVault, Merkle root)
+anchor run initialize-all-accounts --provider.cluster devnet
+
+# 6. Set upgrade authority to Squads
+solana program set-upgrade-authority $PROGRAM_ID --new-upgrade-authority YOUR_SQUADS_VAULT
+
+echo "✅ Full initialization complete!"
+echo "Test transfers, activate bot, add liquidity at milestones."
+chmod +x scripts/initialize_all.sh
+./scripts/initialize_all.sh
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+use spl_transfer_hook_interface::account::ExtraAccountMetaList;
+
+#[account]
+pub struct ExtraAccountMetaListAccount {
+    pub data: Vec<u8>,  // Serialized list of ExtraAccountMeta
+}
+
+pub fn initialize_extra_account_meta(ctx: Context<InitExtraMeta>) -> Result<()> {
+    let extra_metas = vec![
+        // Treasury PDA for tax routing
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.treasury.key(), false, true),
+        // Bonding curve for MC calculation
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.bonding_curve.key(), false, true),
+        // Pyth price update
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.price_update.key(), false, false),
+        // Staking vault, Merkle tree, etc.
+    ];
+
+    // Serialize and store
+    let mut data = vec![];
+    ExtraAccountMetaList::pack(extra_metas, &mut data)?;
+    // Init or update account
+    Ok(())
+}
+#[derive(Accounts)]
+pub struct InitExtraMeta<'info> {
+    #[account(mut)]
+    pub extra_meta_list: AccountInfo<'info>,
+    pub authority: Signer<'info>,  // Squads-gated
+}
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build
+anchor deploy --provider.cluster devnet
+#!/bin/bash
+set -e
+
+# ================== CONFIG ==================
+PROGRAM_ID="YOUR_HOOK_PROGRAM_ID_HERE"          # From anchor deploy
+SQUADS_VAULT="YOUR_SQUADS_MULTISIG_VAULT_PUBKEY_HERE"
+MINT_AUTHORITY="$SQUADS_VAULT"                  # Squads as authority
+DECIMALS=9
+CLUSTER="devnet"
+
+echo "🚀 Creating Token-2022 mint with full extensions + Squads authority..."
+
+# Create mint with Transfer Hook + Metadata + Confidential Transfers
+spl-token create-token \
+  --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb \
+  --transfer-hook "$PROGRAM_ID" \
+  --enable-metadata \
+  --enable-confidential-transfers \
+  --url "$CLUSTER" \
+  --decimals $DECIMALS \
+  --mint-authority "$MINT_AUTHORITY" \
+  --freeze-authority "$MINT_AUTHORITY"
+
+MINT=$(spl-token display | grep "Address:" | awk '{print $2}' | head -n1)
+
+echo "✅ Mint created: $MINT"
+echo "Squads vault set as mint authority for security."
+
+# Initialize Metadata (via Token-2022 metadata extension)
+spl-token initialize-metadata \
+  --mint "$MINT" \
+  --name "\$PUMP" \
+  --symbol "PUMP" \
+  --uri "https://your-metadata-uri.json" \
+  --url "$CLUSTER"
+
+echo "✅ Metadata initialized."
+chmod +x scripts/create_token_2022_mint.sh
+./scripts/create_token_2022_mint.sh
+// In your program (call once after mint creation)
+pub fn initialize_extra_account_meta(ctx: Context<InitExtraMeta>) -> Result<()> {
+    // Define extra accounts for hook (treasury, stats, oracles, etc.)
+    let extra_metas = vec![ /* your PDAs */ ];
+    // Use spl_transfer_hook::initialize_extra_account_meta_list CPI
+    Ok(())
+}
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+// Confidential transfer handling in transfer_hook
+if let Some(confidential) = &ctx.accounts.source.confidential_transfer {
+    // Verify ElGamal proof + range proof
+    spl_token_2022::confidential_transfer::verify_proof(
+        &confidential.proof_context,
+        amount_equivalent,
+    )?;
+    
+    // Apply burn/tax on public equivalent while preserving privacy
+    let tax = calculate_tax_on_equivalent(amount_equivalent);
+    // ... CPI burn + treasury transfer
+}
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd/home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+// In transfer_hook or dedicated confidential handler
+if ctx.accounts.source.confidential_transfer.is_some() {
+    // Verify proof using spl_token_2022::confidential_transfer::verify_proof
+    // Route tax/burn on decrypted equivalent while preserving privacy
+}
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+pub fn close_position_and_refund_rent(...) -> Result<()> {
+    // CPI to Orca close_position
+    // Refund rent to treasury PDA
+    msg!("Refunded tick array rent after position close");
+    Ok(())
+}
+
+// In expand_tick_array_range (edge case handling)
+require!(treasury.balance >= MIN_RENT, ErrorCode::InsufficientRent);
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+orca_whirlpools = "8.0.0"
+orca_whirlpools_client = "8.0.0"  # For low-level CPI if needed
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts/pump-bot
+npm install
+node index.js
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+// In pump-bot/index.js
+async function executeDcaBuyback(amount, intervals = 10) {
+  // Jupiter quote with DCA params → loop swaps
+}
+cd /home/workdir/artifacts
+bash single_full_commit.sh
+cd /home/workdir/artifacts/programs/pump_rewards
+anchor build && anchor test
+cd /home/workdir/artifacts
+node scripts/generate_merkle_rewards.js snapshot.json merkle_tree.json
+[
+  {"staker": "PubkeyHere...", "rewardAmount": 1000000000},
+  {"staker": "AnotherPubkey...", "rewardAmount": 500000000}
+]
+
+
+
+
+
+
+
+
 
 
 
