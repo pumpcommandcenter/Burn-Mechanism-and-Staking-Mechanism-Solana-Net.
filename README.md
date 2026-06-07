@@ -6375,6 +6375,148 @@ export async function POST(req: Request) {
 }
 
 
+let cpi_accounts = TransferChecked {
+    from: ctx.accounts.source_account.to_account_info(),
+    mint: ctx.accounts.mint.to_account_info(),
+    to: ctx.accounts.treasury_token_account.to_account_info(),
+    authority: ctx.accounts.authority.to_account_info(),
+};
+
+let cpi_ctx = CpiContext::new(
+    ctx.accounts.token_program.to_account_info(),  // Program being called
+    cpi_accounts
+);
+
+anchor_spl::token_interface::transfer_checked(cpi_ctx, tax_amount, decimals)?;
+
+
+const medianFee = getRecentPrioritizationFees();
+const congestionFactor = Math.pow(1.6, loadFactor);
+const tip = Math.min(Math.max(baseTip * congestionFactor + jitter, MIN_TIP), MAX_TIP);
+
+// 1. Simulation dry-run
+const sim = await connection.simulateTransaction(tx, { commitment: 'processed' });
+if (sim.value.err) throw new SimulationError(...);
+
+// 2. Dynamic tip + regional selection
+const tip = await calculateDynamicTip(connection);
+const bestRegion = await getLowestLatencyRegion();
+
+// 3. Send with retry + fallback
+const result = await withExponentialBackoff(() => sendToJitoBlockEngine(transactions, tip));
+
+
+#[account]
+pub struct ReentrancyGuard {
+    pub locked: bool,           // Simple boolean lock
+}
+
+pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+    let guard = &mut ctx.accounts.reentrancy_guard;
+
+    // === REENTRANCY CHECK ===
+    require!(!guard.locked, PumpError::ReentrancyDetected);
+
+    // Lock the guard
+    guard.locked = true;
+
+    // Critical section: tax calculation + CPI
+    let tax_amount = amount
+        .checked_div(100)
+        .ok_or(PumpError::ArithmeticOverflow)?;
+
+    if tax_amount == 0 && amount > 0 {
+        guard.locked = false; // Always unlock on early return
+        return err!(PumpError::ZeroTaxAmount);
+    }
+
+    // Secure CPI to Token Program
+    let cpi_accounts = TransferChecked { /* ... */ };
+    let cpi_ctx = CpiContext::new(/* ... */);
+
+    let cpi_result = anchor_spl::token_interface::transfer_checked(cpi_ctx, tax_amount, decimals);
+
+    // Always unlock before returning
+    guard.locked = false;
+
+    if let Err(e) = cpi_result {
+        msg!("CPI failed: {:?}", e);
+        return err!(PumpError::TaxTransferFailed);
+    }
+
+    msg!("✅ Tax transferred safely");
+    Ok(())
+}
+
+
+export function useHeliusLaserStream(walletAddress: string | null) {
+  const [status, setStatus] = useState<'connected' | 'disconnected'>('disconnected');
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectAttempts = useRef(0);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+
+    const connect = () => {
+      const ws = new WebSocket(process.env.NEXT_PUBLIC_HELIUS_WS_URL!);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setStatus('connected');
+        reconnectAttempts.current = 0;
+
+        // Subscribe to wallet account changes
+        ws.send(JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "accountSubscribe",
+          params: [walletAddress, { commitment: "confirmed" }]
+        }));
+
+        // Subscribe to collection-specific transactions (NFT sales, transfers)
+        ws.send(JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "transactionSubscribe",
+          params: [{
+            accountInclude: [walletAddress, process.env.NEXT_PUBLIC_COLLECTION_MINT]
+          }, { commitment: "confirmed" }]
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.method?.includes('Notification')) {
+          // Trigger UI updates, portfolio refresh, toast notifications
+          console.log('🔴 LaserStream Event:', data.params.result);
+          // e.g., refreshPortfolio();
+        }
+      };
+
+      ws.onclose = () => {
+        setStatus('disconnected');
+        if (reconnectAttempts.current < 5) {
+          const delay = Math.pow(2, reconnectAttempts.current) * 1000;
+          setTimeout(connect, delay);
+          reconnectAttempts.current++;
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error('LaserStream WebSocket error:', err);
+        setStatus('disconnected');
+      };
+    };
+
+    connect();
+
+    return () => wsRef.current?.close();
+  }, [walletAddress]);
+
+  return status;
+}
+
+
 
 
 
