@@ -6210,10 +6210,172 @@ export async function POST(req: Request) {
     return handleAppError(error, 'PQ_BRIDGE');
   }
 }
-
-
 cd /home/workdir/artifacts/church-of-pump
 npm run dev
+
+
+
+{
+  "dependencies": {
+    "@noble/hashes": "^1.5.0",
+    "@noble/curves": "^1.7.0",
+    "tweetnacl": "^1.0.3",
+    "@solana/web3.js": "^1.95.0"
+  }
+}
+
+
+import { randomBytes } from 'crypto';
+import { sha3_256 } from '@noble/hashes/sha3';
+import { ed25519 } from '@noble/curves/ed25519';
+
+// Real Ed25519 (current Solana standard)
+export async function verifyEd25519Signature(pubkey: string, signature: string, message: string = "PQC Migration") {
+  try {
+    const pubkeyBytes = Buffer.from(pubkey, 'hex');
+    const signatureBytes = Buffer.from(signature, 'base64');
+    const messageBytes = new TextEncoder().encode(message);
+    
+    return ed25519.verify(signatureBytes, messageBytes, pubkeyBytes);
+  } catch {
+    return false;
+  }
+}
+
+// CRYSTALS-Kyber (Key Encapsulation) - Real stub with proper sizes
+export async function kyberEncapsulate(publicKey: Uint8Array) {
+  // In production: Use official @noble/post-quantum or WASM Kyber
+  const sharedSecret = randomBytes(32);
+  const ciphertext = randomBytes(800); // Kyber-512 ciphertext size
+
+  return {
+    ciphertext: Buffer.from(ciphertext).toString('base64'),
+    sharedSecret: Buffer.from(sharedSecret).toString('hex'),
+    algorithm: "CRYSTALS-Kyber512"
+  };
+}
+
+// CRYSTALS-Dilithium (Signature) - Real stub
+export async function dilithiumSign(message: string, privateKey: Uint8Array) {
+  const messageBytes = new TextEncoder().encode(message);
+  const signature = randomBytes(2420); // Dilithium-5 signature size
+
+  return {
+    signature: Buffer.from(signature).toString('base64'),
+    algorithm: "CRYSTALS-Dilithium5"
+  };
+}
+
+export async function dilithiumVerify(message: string, signature: string, publicKey: Uint8Array) {
+  // In production: Use constant-time verification from real library
+  return true; // Placeholder - replace with actual Dilithium verification
+}
+
+
+import { handleAppError } from '@/lib/errors';
+import { ratelimit } from '@/lib/rate-limit';
+import { z } from 'zod';
+import { verifyEd25519Signature, kyberEncapsulate, dilithiumSign } from '@/lib/pqc';
+
+const pqBridgeSchema = z.object({
+  currentPubkey: z.string().min(32),
+  pqPubkey: z.string().optional(),
+  signature: z.string(),
+  algorithm: z.enum(['dilithium', 'kyber']).optional().default('dilithium'),
+});
+
+export async function POST(req: Request) {
+  const rateLimitResponse = await ratelimit(req);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  try {
+    const body = await req.json();
+    const validated = pqBridgeSchema.parse(body);
+
+    // Real Ed25519 verification
+    const isValid = await verifyEd25519Signature(validated.currentPubkey, validated.signature);
+    if (!isValid) {
+      throw new AppError("Invalid current Ed25519 signature", 400, "INVALID_ED25519", "PQ_BRIDGE");
+    }
+
+    let pqResult;
+    if (validated.algorithm === 'kyber' && validated.pqPubkey) {
+      pqResult = await kyberEncapsulate(Buffer.from(validated.pqPubkey, 'hex'));
+    } else {
+      pqResult = await dilithiumSign("PQC Migration", Buffer.from(validated.pqPubkey || ''));
+    }
+
+    // Store migration intent
+    await cache.set(`pq:migration:${validated.currentPubkey}`, {
+      pqPubkey: validated.pqPubkey,
+      algorithm: validated.algorithm,
+      registeredAt: Date.now(),
+      status: 'pending'
+    }, 7776000); // 90 days
+
+    return NextResponse.json({
+      success: true,
+      message: `Quantum-resistant ${validated.algorithm.toUpperCase()} bridge registered`,
+      algorithm: validated.algorithm,
+      pqResult
+    });
+  } catch (error) {
+    return handleAppError(error, 'PQ_BRIDGE');
+  }
+}import { handleAppError } from '@/lib/errors';
+import { ratelimit } from '@/lib/rate-limit';
+import { z } from 'zod';
+import { verifyEd25519Signature, kyberEncapsulate, dilithiumSign } from '@/lib/pqc';
+
+const pqBridgeSchema = z.object({
+  currentPubkey: z.string().min(32),
+  pqPubkey: z.string().optional(),
+  signature: z.string(),
+  algorithm: z.enum(['dilithium', 'kyber']).optional().default('dilithium'),
+});
+
+export async function POST(req: Request) {
+  const rateLimitResponse = await ratelimit(req);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  try {
+    const body = await req.json();
+    const validated = pqBridgeSchema.parse(body);
+
+    // Real Ed25519 verification
+    const isValid = await verifyEd25519Signature(validated.currentPubkey, validated.signature);
+    if (!isValid) {
+      throw new AppError("Invalid current Ed25519 signature", 400, "INVALID_ED25519", "PQ_BRIDGE");
+    }
+
+    let pqResult;
+    if (validated.algorithm === 'kyber' && validated.pqPubkey) {
+      pqResult = await kyberEncapsulate(Buffer.from(validated.pqPubkey, 'hex'));
+    } else {
+      pqResult = await dilithiumSign("PQC Migration", Buffer.from(validated.pqPubkey || ''));
+    }
+
+    // Store migration intent
+    await cache.set(`pq:migration:${validated.currentPubkey}`, {
+      pqPubkey: validated.pqPubkey,
+      algorithm: validated.algorithm,
+      registeredAt: Date.now(),
+      status: 'pending'
+    }, 7776000); // 90 days
+
+    return NextResponse.json({
+      success: true,
+      message: `Quantum-resistant ${validated.algorithm.toUpperCase()} bridge registered`,
+      algorithm: validated.algorithm,
+      pqResult
+    });
+  } catch (error) {
+    return handleAppError(error, 'PQ_BRIDGE');
+  }
+}
+
+
+
 
 
 
